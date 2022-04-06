@@ -14,43 +14,7 @@ const TOTAL_MINT_COUNT = 60;
 const App = () => {
   const [currentAccount, setCurrentAccount] = useState("");
   const [registered, setRegistered] = useState(false);
-
-  const checkIfWalletIsConnected = async () => {
-    const { ethereum } = window;
-    const provider = new ethers.providers.Web3Provider(ethereum);
-    const signer = provider.getSigner();
-    if (!ethereum) {
-      console.log("Make sure you have metamask!");
-      return;
-    } else {
-      console.log("We have the ethereum object", ethereum);
-    }
-    let chainId = await ethereum.request({ method: "eth_chainId" });
-    console.log("Connected to chain " + chainId);
-
-    // String, hex code of the chainId of the Rinkebey test network
-    const rinkebyChainId = "0x4";
-    if (chainId !== rinkebyChainId) {
-      alert("You are not connected to the Rinkeby Test Network!");
-    }
-    const accounts = await ethereum.request({ method: "eth_accounts" });
-
-    if (accounts.length !== 0) {
-      const account = accounts[0];
-      console.log("Found an authorized account:", account);
-      setCurrentAccount(account);
-    } else {
-      console.log("No authorized account found");
-    }
-
-    const connectedContract = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      FinTechBlockChain.abi,
-      signer
-    );
-    const balance = await connectedContract.balanceOf(currentAccount);
-    balance > 0 && setRegistered(true);
-  };
+  const [credits, setCredits] = useState(0);
 
   /*
    * Implement your connectWallet method here
@@ -87,13 +51,11 @@ const App = () => {
           FinTechBlockChain.abi,
           signer
         );
-        console.log("Going to pop wallet now to pay gas...");
-        let nftTxn = await connectedContract.registerFinTechBlockChain();
 
+        let nftTxn = await connectedContract.registerFinTechBlockChain();
         console.log("Mining...please wait.");
         await nftTxn.wait();
-
-        console.log(
+        alert(
           `Mined, see transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`
         );
       } else {
@@ -115,12 +77,61 @@ const App = () => {
   );
 
   useEffect(() => {
+    const checkIfWalletIsConnected = async () => {
+      const { ethereum } = window;
+      const provider = new ethers.providers.Web3Provider(ethereum);
+      const signer = provider.getSigner();
+      const connectedContract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        FinTechBlockChain.abi,
+        signer
+      );
+      const creditContract = new ethers.Contract(
+        "0x452BcC19e0cbBa70Dd047d771784178be6721817",
+        DukeUniversityCredit.abi,
+        signer
+      );
+      if (!ethereum) {
+        console.log("Make sure you have metamask!");
+        return;
+      } else {
+        console.log("We have the ethereum object", ethereum);
+      }
+      let chainId = await ethereum.request({ method: "eth_chainId" });
+      console.log("Connected to chain " + chainId);
+
+      // String, hex code of the chainId of the Rinkebey test network
+      const rinkebyChainId = "0x4";
+      if (chainId !== rinkebyChainId) {
+        alert("You are not connected to the Rinkeby Test Network!");
+      }
+      const accounts = await ethereum.request({ method: "eth_accounts" });
+
+      if (accounts.length !== 0) {
+        const account = accounts[0];
+        console.log("Found an authorized account:", account);
+        setCurrentAccount(account);
+        try {
+          const balance = await connectedContract.balanceOf(account);
+          if (balance > 0) {
+            setRegistered(true);
+          }
+          const credit = await creditContract.balanceOf(account);
+          setCredits(credit.toString() / 1000000000000000000);
+        } catch (error) {
+          console.log(error);
+        }
+      } else {
+        console.log("No authorized account found");
+      }
+    };
     checkIfWalletIsConnected();
   }, []);
 
   return (
     <div className="App">
       <div className="container">
+        <p className="sub-text">You have {credits} credits available</p>
         {registered ? (
           <div className="header-container">
             <p className="header gradient-text">
